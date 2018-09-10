@@ -1,4 +1,4 @@
-# meianclient
+# meian-client
 Shenzhen Meian Technology / Focus burglar alarm TCP client
 
 Shenzhen Meian Technology products are widely known and marketed low cost safety alarm systems. 
