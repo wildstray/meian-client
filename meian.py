@@ -17,7 +17,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-# 
+#
 
 from __future__ import division, print_function, absolute_import
 import asyncore
@@ -322,6 +322,73 @@ class MeianClient():
         xpath = '/Root/Host/GetZoneType'
         return self._(xpath, cmd, True)
 
+    def WlsStudy(self):
+        cmd = OD()
+        cmd['Err'] = None
+        xpath = '/Root/Host/WlsStudy'
+        return self._(xpath, cmd)
+
+    def ConfigWlWaring(self):
+        cmd = OD()
+        cmd['Err'] = None
+        xpath = '/Root/Host/ConfigWlWaring'
+        return self._(xpath, cmd)
+
+    def FskStudy(self, en):
+        cmd = OD()
+        cmd['Study'] = BOL(en)
+        cmd['Err'] = None
+        xpath = '/Root/Host/FskStudy'
+        return self._(xpath, cmd)
+
+    def GetWlsStatus(self, num):
+        cmd = OD()
+        cmd['Num'] = S32(num)
+        cmd['Bat'] = None
+        cmd['Tamp'] = None
+        cmd['Status'] = None
+        cmd['Err'] = None
+        xpath = '/Root/Host/GetWlsStatus'
+        return self._(xpath, cmd)
+
+    def DelWlsDev(self, num):
+        cmd = OD()
+        cmd['Num'] = S32(num)
+        cmd['Err'] = None
+        xpath = '/Root/Host/DelWlsDev'
+        return self._(xpath, cmd)
+
+    def WlsSave(self, typ, num, code):
+        cmd = OD()
+        cmd['Type'] = 'TYP,NO|%d' % typ
+        cmd['Num'] = S32(num, 1)
+        cmd['Code'] = STR(code)
+        cmd['Err'] = None
+        xpath = '/Root/Host/WlsSave'
+        return self._(xpath, cmd)
+
+    def GetWlsList(self):
+        cmd = OD()
+        cmd['Total'] = None
+        cmd['Offset'] = S32(0)
+        cmd['Ln'] = None
+        cmd['Err'] = None
+        xpath = '/Root/Host/GetWlsList'
+        return self._(xpath, cmd)
+
+    def SwScan(self):
+        cmd = OD()
+        cmd['Err'] = None
+        xpath = '/Root/Host/SwScan'
+        return self._(xpath, cmd)
+
+    def Reset(self, ret):
+        cmd = OD()
+        cmd['Ret'] = BOL(ret)
+        cmd['Err'] = None
+        xpath = '/Root/Host/Reset'
+        return self._(xpath, cmd)
+
     def OpSwitch(self, pos, en):
         cmd = OD()
         cmd['Pos'] = S32(pos, 1)
@@ -557,6 +624,7 @@ class MeianClient():
     def _receive(self):
         try:
             data = self.sock.recv(1024)
+            print (data)
         except socket.timeout:
             self.sock.close()
             raise ConnectionError("Connection error")
@@ -854,6 +922,12 @@ def main():
     myalarm = MeianClient(host, port, uid, pwd)
     print (myalarm.client)
     print (myalarm.GetAlarmStatus())
+#    print (myalarm.WlsStudy())
+#    print (myalarm.ConfigWlWaring())
+#    print (myalarm.FskStudy(True))
+#    print (myalarm.GetWlsStatus(0))
+#    print (myalarm.GetWlsList())
+#    print (myalarm.SwScan())
     #print (myalarm.SetAlarmStatus(0))
     #print (myalarm.GetAlarmStatus())
     #print (myalarm.GetSwitch())
@@ -888,10 +962,10 @@ def main():
     def mytest(alarm):
         print (alarm)
 
-    mypush = MeianPushClient(host, port, uid, mytest)
-    while True:
-        time.sleep(60)
-    mypush.close()
+#    mypush = MeianPushClient(host, port, uid, mytest)
+#    while True:
+#        time.sleep(60)
+#    mypush.close()
 
 if __name__ == "__main__":
     # execute only if run as a script
