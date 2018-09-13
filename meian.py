@@ -624,7 +624,6 @@ class MeianClient():
     def _receive(self):
         try:
             data = self.sock.recv(1024)
-            print (data)
         except socket.timeout:
             self.sock.close()
             raise ConnectionError("Connection error")
@@ -636,7 +635,6 @@ class MeianClient():
         for i in xrange(len(input)):
             ki = i & 0x7f
             buf[i] = buf[i] ^ sz[ki]
-#        print (buf)
         return str(buf)
 
     def _create(self, path, mydict = {}):
