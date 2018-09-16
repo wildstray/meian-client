@@ -96,7 +96,7 @@ class MeianClient():
         cmd['Ln'] = None
         cmd['Err'] = None
         xpath = '/Root/Host/GetDefense'
-        return self._(xpath, cmd)
+        return self._(xpath, cmd, True)
 
     def GetEmail(self):
         cmd = OD()
@@ -291,6 +291,8 @@ class MeianClient():
         cmd['En'] = None
         cmd['Name'] = None
         cmd['Type'] = None
+        cmd['Time'] = None
+        cmd['Dst'] = None
         cmd['Err'] = None
         xpath = '/Root/Host/GetTime'
         return self._(xpath, cmd)
@@ -487,19 +489,20 @@ class MeianClient():
     def SetRfid(self, pos, code, typ, msg):
         cmd = OD()
         cmd['Pos'] = S32(pos, 1)
+        cmd['Type'] = S32(typ, ['NO', 'DS', 'HS', 'DM' 'HM', 'DC'])
         cmd['Code'] = STR(code)
-        cmd['Type'] = S32(typ, 1)
         cmd['Msg'] = STR(msg)
         cmd['Err'] = None
         xpath = '/Root/Host/SetRfid'
         return self._(xpath, cmd)
 
-#    def SetRemote(self, pos):
-#        cmd = OD()#
-#        cmd['Pos'] = S32(pos, 1)
-#        cmd['Err'] = None
-#        xpath = '/Root/Host/SetRemote'
-#        return self._(xpath, cmd)
+    def SetRemote(self, pos, code):
+        cmd = OD()#
+        cmd['Pos'] = S32(pos, 1)
+        cmd['Code'] = STR(code)
+        cmd['Err'] = None
+        xpath = '/Root/Host/SetRemote'
+        return self._(xpath, cmd)
 
     def SetSendby(self, cid, tel, voice, sms, email):
         cmd = OD()
@@ -512,12 +515,13 @@ class MeianClient():
         xpath = '/Root/Host/SetSendby'
         return self._(xpath, cmd)
 
-#    def SetSensor(self, pos):
-#        cmd = OD()
-#        cmd['Pos'] = S32(pos, 1)
-#        cmd['Err'] = None
-#        xpath = '/Root/Host/SetSensor'
-#        return self._(xpath, cmd)
+    def SetSensor(self, pos, code):
+        cmd = OD()
+        cmd['Pos'] = S32(pos, 1)
+        cmd['Code'] = STR(code)
+        cmd['Err'] = None
+        xpath = '/Root/Host/SetSensor'
+        return self._(xpath, cmd)
 
     def SetServ(self, en, ip, port, name, pwd, cnt):
         cmd = OD()
@@ -531,12 +535,13 @@ class MeianClient():
         xpath = '/Root/Host/SetServ'
         return self._(xpath, cmd)
 
-#    def SetSwitch(self, pos):
-#        cmd = OD()
-#        cmd['Pos'] = S32(pos, 1)
-#        cmd['Err'] = None
-#        xpath = '/Root/Host/SetSwitch'
-#        return self._(xpath, cmd)
+    def SetSwitch(self, pos, code):
+        cmd = OD()
+        cmd['Pos'] = S32(pos, 1)
+        cmd['Code'] = STR(code)
+        cmd['Err'] = None
+        xpath = '/Root/Host/SetSwitch'
+        return self._(xpath, cmd)
 
     def SetSwitchInfo(self, pos, name, hmopen = '00:00', hmclose = '00:00'):
         cmd = OD()
@@ -576,11 +581,13 @@ class MeianClient():
         xpath = '/Root/Host/SetTel'
         return self._(xpath, cmd)
 
-    def SetTime(self, en, name, typ):
+    def SetTime(self, en, name, typ, time, dst):
         cmd = OD()
         cmd['En'] = BOL(en)
         cmd['Name'] = STR(name)
         cmd['Type'] = 'TYP,0|%d' % typ
+        cmd['Time'] = DTA(time)
+        cmd['Dst'] = BOL(dst)
         cmd['Err'] = None
         xpath = '/Root/Host/SetTime'
         return self._(xpath, cmd)
@@ -688,12 +695,12 @@ class MeianClient():
                     value =  False
             elif DTA.match(input):
                 dta = DTA.search(input).groups()[1]
-                value =  time.strptime(dta,"%Y.%m.%d.%H.%M.%S")
+                value =  time.strptime(dta,'%Y.%m.%d.%H.%M.%S')
             elif ERR.match(input):
                 value =  int(ERR.search(input).groups()[0])
             elif HMA.match(input):
                 hma = HMA.search(input).groups()[1]
-                value =  time.strptime(hma,"%H:%M")
+                value =  time.strptime(hma,'%H:%M')
             elif IPA.match(input):
                 value =  str(IPA.search(input).groups()[1])
             elif MAC.match(input):
@@ -821,6 +828,10 @@ def BOL(en):
     else:
         return 'BOL|F'
 
+def DTA(t):
+    dta = time.strftime('%Y.%m.%d.%H.%M.%S', t)
+    return 'DTA,%d|%s' % (len(dta), dta)
+
 def PWD(text):
     return 'PWD,%d|%s' % (len(text), text)
 
@@ -924,7 +935,7 @@ def main():
 #    print (myalarm.ConfigWlWaring())
 #    print (myalarm.FskStudy(True))
 #    print (myalarm.GetWlsStatus(0))
-#    print (myalarm.GetWlsList())
+    print (myalarm.GetWlsList())
 #    print (myalarm.SwScan())
     #print (myalarm.SetAlarmStatus(0))
     #print (myalarm.GetAlarmStatus())
@@ -933,7 +944,7 @@ def main():
     #print (myalarm.GetSwitchInfo())
     #print (myalarm.OpSwitch(0, False))
     #print (myalarm.GetByWay())
-    #print (myalarm.GetDefense())
+    print (myalarm.GetDefense())
     #print (myalarm.GetEmail())
     #print (myalarm.GetEvents())
     #print (myalarm.GetGprs(1100))
@@ -942,11 +953,11 @@ def main():
     #print (myalarm.GetOverlapZone())
     #print (myalarm.GetPairServ())
     #print (myalarm.GetPhone())
-    #print (myalarm.GetRemote())
+    print (myalarm.GetRemote())
     #print (myalarm.GetRfid())
     #print (myalarm.GetRfidType())
     #print (myalarm.GetSendby(1100))
-    #print (myalarm.GetSensor())
+    print (myalarm.GetSensor())
     #print (myalarm.GetServ())
     #print (myalarm.GetSwitch())
     #print (myalarm.GetSwitchInfo())
