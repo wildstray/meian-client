@@ -592,12 +592,13 @@ class MeianClient():
         xpath = '/Root/Host/SetTime'
         return self._(xpath, cmd)
 
-    def SetZone(self, pos, typ, zone, name):
+    def SetZone(self, pos, typ, voice, name, bell):
         cmd = OD()
         cmd['Pos'] = S32(pos, 1)
-        cmd['Type'] = TYP(typ)
-        cmd['Zone'] = TYP(zone)
+        cmd['Type'] = TYP(typ, ['NO', 'DE', 'SI', 'IN', 'FO', 'HO24', 'FI', 'KE', 'GAS', 'WT'])
+        cmd['Voice'] = TYP(voice, ['CX', 'MC', 'NO'])
         cmd['Name'] = STR(name)
+        cmd['Bell'] = BOL(bell)
         cmd['Err'] = None
         xpath = '/Root/Host/SetZone'
         return self._(xpath, cmd)
@@ -614,7 +615,7 @@ class MeianClient():
             l = []
         total = self._select(resp, '%s/Total' % xpath)
         ln = self._select(resp, '%s/Ln' % xpath)
-        for i in xrange(0, ln):
+        for i in list(range(ln)):
             event = self._select(resp, '%s/L%d' % (xpath, i))
             l.append(self._select(resp, '%s/L%d' % (xpath, i)))
         offset += ln
@@ -625,24 +626,25 @@ class MeianClient():
     def _send(self, root):
         xml = dicttoxml.dicttoxml(root, attr_type=False, root=False)
         self.seq += 1
-        mesg = "@ieM%04d%04d0000%s%04d" % (len(xml), self.seq, self._xor(xml), self.seq)
+        mesg = b'@ieM%04d%04d0000%s%04d' % (len(xml), self.seq, self._xor(xml), self.seq)
         self.sock.send(mesg)
 
     def _receive(self):
         try:
             data = self.sock.recv(1024)
+            #print (data)
         except socket.timeout:
             self.sock.close()
             raise ConnectionError("Connection error")
-        return xmltodict.parse(self._xor(data[16:-4]), xml_attribs=False, dict_constructor=dict, postprocessor=self._xmlread)
+        return xmltodict.parse(self._xor(data[16:-4]).decode(), xml_attribs=False, dict_constructor=dict, postprocessor=self._xmlread)
 
     def _xor(self, input):
         sz = bytearray.fromhex('0c384e4e62382d620e384e4e44382d300f382b382b0c5a6234384e304e4c372b10535a0c20432d171142444e58422c421157322a204036172056446262382b5f0c384e4e62382d620e385858082e232c0f382b382b0c5a62343830304e2e362b10545a0c3e432e1711384e625824371c1157324220402c17204c444e624c2e12')
         buf = bytearray(input)
-        for i in xrange(len(input)):
+        for i in range(len(input)):
             ki = i & 0x7f
             buf[i] = buf[i] ^ sz[ki]
-        return str(buf)
+        return buf
 
     def _create(self, path, mydict = {}):
         root = {}
@@ -678,6 +680,7 @@ class MeianClient():
             BOL = re.compile('BOL\|([FT])')
             DTA = re.compile('DTA(,\d+)*\|(\d{4}\.\d{2}.\d{2}.\d{2}.\d{2}.\d{2})')
             ERR = re.compile('ERR\|(\d{2})')
+            GBA = re.compile('GBA,(\d+)\|([0-9A-F]*)')
             HMA = re.compile('HMA,(\d+)\|(\d{2}:\d{2})')
             IPA = re.compile('IPA,(\d+)\|(([0-2]?\d{0,2}\.){3}([0-2]?\d{0,2}))')
             MAC = re.compile('MAC,(\d+)\|(([0-9A-F]{2}[:-]){5}([0-9A-F]{2}))')
@@ -692,12 +695,14 @@ class MeianClient():
                 if bol == "T":
                     value = True
                 if bol == "F":
-                    value =  False
+                    value = False
             elif DTA.match(input):
                 dta = DTA.search(input).groups()[1]
                 value =  time.strptime(dta,'%Y.%m.%d.%H.%M.%S')
             elif ERR.match(input):
                 value =  int(ERR.search(input).groups()[0])
+            elif GBA.match(input):
+                value =  bytearray.fromhex(GBA.search(input).groups()[1]).decode()
             elif HMA.match(input):
                 hma = HMA.search(input).groups()[1]
                 value =  time.strptime(hma,'%H:%M')
@@ -722,6 +727,7 @@ class MeianClient():
             return key, value
         except (ValueError, TypeError):
             return key, value
+
 
 class MeianPushClient(asyncore.dispatcher, threading.Thread, MeianClient):
 
@@ -771,33 +777,40 @@ class MeianPushClient(asyncore.dispatcher, threading.Thread, MeianClient):
 
     def handle_read(self):
         data = self.recv(1024)
+        if (type(data) == str):
+            data = data.encode()
         head = data[0:4]
 
-        if head == '%maI':
+        if head == b'%maI':
             threading.Timer(self.keepalive, self._keepalive).start()
 
-        elif head == '@ieM':
+        elif head == b'@ieM':
             xpath = '/Root/Pair/Push'
-            resp = xmltodict.parse(self._xor(data[16:-4]), xml_attribs=False, dict_constructor=dict, postprocessor=self._xmlread)
+            resp = xmltodict.parse(self._xor(data[16:-4]).decode(), xml_attribs=False, dict_constructor=dict, postprocessor=self._xmlread)
             self.push = self._select(resp, xpath)
             err = self._select(resp, '%s/Err' % xpath)
             if err:
                 self.close()
                 raise PushClientError("Push subscription error")
 
-        elif head == '@alA':
+        elif head == b'@alA':
             xpath = '/Root/Host/Alarm'
-            resp = xmltodict.parse(self._xor(data[16:-4]), xml_attribs=False, dict_constructor=dict, postprocessor=self._xmlread)
+            resp = xmltodict.parse(self._xor(data[16:-4]).decode(), xml_attribs=False, dict_constructor=dict, postprocessor=self._xmlread)
+            self.handler(self._select(resp, xpath))
+
+        elif head == b'!lmX':
+            xpath = '/Root/Host/Alarm'
+            resp = xmltodict.parse(data[16:-4], xml_attribs=False, dict_constructor=dict, postprocessor=self._xmlread)
             self.handler(self._select(resp, xpath))
 
         else:
+            self.close()
             raise ResponseError("Response error")
 
     def handle_write(self):
         if self.mesg is not None:
             xml = dicttoxml.dicttoxml(self.mesg, attr_type=False, root=False)
-            lenght = len(xml)
-            mesg = "@ieM%04d%04d0000%s%04d" % (lenght, 0, self._xor(xml), 0)
+            mesg = b'@ieM%04d%04d0000%s%04d' % (len(xml), 0, self._xor(xml), 0)
             self.send(mesg)
             self.mesg = None
 
@@ -805,7 +818,7 @@ class MeianPushClient(asyncore.dispatcher, threading.Thread, MeianClient):
         self.close()
 
     def _keepalive(self):
-        mesg = "%maI"
+        mesg = b'%maI'
         self.send(mesg)
         self.mesg = None
 
@@ -922,21 +935,20 @@ TZ = {  0: 'GMT-12:00',
        30: 'GMT+13:00',
 }
 
-
 def main():
-    host = '52.28.104.204'
-    uid = '0449F7C65A'
-    pwd = '1234'
+    host = '10.1.1.11'
+    uid = 'admin'
+    pwd = '012345'
     port = 18034
     myalarm = MeianClient(host, port, uid, pwd)
     print (myalarm.client)
-    print (myalarm.GetAlarmStatus())
-#    print (myalarm.WlsStudy())
-#    print (myalarm.ConfigWlWaring())
-#    print (myalarm.FskStudy(True))
-#    print (myalarm.GetWlsStatus(0))
+    #print (myalarm.GetAlarmStatus())
+    #print (myalarm.WlsStudy())
+    #print (myalarm.ConfigWlWaring())
+    #print (myalarm.FskStudy(True))
+    #print (myalarm.GetWlsStatus(0))
     print (myalarm.GetWlsList())
-#    print (myalarm.SwScan())
+    #print (myalarm.SwScan())
     #print (myalarm.SetAlarmStatus(0))
     #print (myalarm.GetAlarmStatus())
     #print (myalarm.GetSwitch())
@@ -944,7 +956,7 @@ def main():
     #print (myalarm.GetSwitchInfo())
     #print (myalarm.OpSwitch(0, False))
     #print (myalarm.GetByWay())
-    print (myalarm.GetDefense())
+    #print (myalarm.GetDefense())
     #print (myalarm.GetEmail())
     #print (myalarm.GetEvents())
     #print (myalarm.GetGprs(1100))
@@ -953,7 +965,7 @@ def main():
     #print (myalarm.GetOverlapZone())
     #print (myalarm.GetPairServ())
     #print (myalarm.GetPhone())
-    print (myalarm.GetRemote())
+    #print (myalarm.GetRemote())
     #print (myalarm.GetRfid())
     #print (myalarm.GetRfidType())
     #print (myalarm.GetSendby(1100))
@@ -967,14 +979,21 @@ def main():
     #print (myalarm.GetVoiceType())
     #print (myalarm.GetZone())
     #print (myalarm.GetZoneType())
+    #print (myalarm.GetAlarmStatus())
+    #print (myalarm.SetAlarmStatus(0))
+    #print (myalarm.OpSwitch(0, False))
+    #print (myalarm.OpSwitch(0, True))
+    #print (myalarm.OpSwitch(1, False))
+    #print (myalarm.OpSwitch(1, True))
+    #print (myalarm.Reset(0))
 
     def mytest(alarm):
         print (alarm)
 
-#    mypush = MeianPushClient(host, port, uid, mytest)
-#    while True:
-#        time.sleep(60)
-#    mypush.close()
+    mypush = MeianPushClient(host, port, uid, mytest)
+    while True:
+        time.sleep(60)
+    mypush.close()
 
 if __name__ == "__main__":
     # execute only if run as a script
